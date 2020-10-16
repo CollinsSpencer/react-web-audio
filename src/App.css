@@ -6,12 +6,12 @@
 }
 
 a {
-  color: white;
+  color: #FFF;
 }
 
 header {
   background: #4CA5CD;
-  color: #fff;
+  color: #FFF;
   flex-shrink: 0;
 }
 
@@ -35,4 +35,5 @@ main {
 footer {
   flex-shrink: 0;
   background: #736D67;
+  color: #FFF;
 }   

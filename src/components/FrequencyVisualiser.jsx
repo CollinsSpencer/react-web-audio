@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 const FrequencyVisualiser = ({ getFrequencyData }) => {
-  const canvasRef = useRef(null);
+  const canvasRef = useRef();
   const requestRef = useRef();
 
   const draw = (audioData) => {
@@ -26,7 +26,8 @@ const FrequencyVisualiser = ({ getFrequencyData }) => {
   };
 
   const animate = useCallback(() => {
-    getFrequencyData(draw);
+    const audioData = getFrequencyData();
+    draw(audioData);
     requestRef.current = requestAnimationFrame(animate);
   }, [getFrequencyData]);
 

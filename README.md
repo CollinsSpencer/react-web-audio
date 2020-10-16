@@ -1,68 +1,153 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# react-web-audio
 
-## Available Scripts
+This is an example application that shows how to visualise audio from the microphone using the Web Audio API in React.
 
-In the project directory, you can run:
+![](react-web-audio.gif)
 
-### `npm start`
+This project was inspired by [Phil Nash's react-web-audio project](https://github.com/philnash/react-web-audio). The key difference is that this project uses functional React components using hooks.
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Demo
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+Try out the [live demo](https://react-web-audio.netlify.app/).
 
-### `npm test`
+## Run the app
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Clone the project and install the dependencies.
 
-### `npm run build`
+```bash
+git clone https://github.com/collinsspencer/react-web-audio.git
+cd react-web-audio
+npm i
+```
 
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Start the application:
 
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
+```bash
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+This should open the browser to http://localhost:3000/.
 
-### `npm run eject`
+## Building a React App with the Web Audio API
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+These are the three files I used to split up the logic. I've added notes below as well.
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```jsx
+// App.jsx
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+const App = () => {
+  const [audio, setAudio] = useState();
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+  const getMicrophone = async () => {
+    const audioMedia = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+    setAudio(audioMedia);
+  };
 
-## Learn More
+  return (
+    <div className="App">
+      <button onClick={getMicrophone} type="button">Listen</button>
+      <AudioAnalyser audio={audio} />
+    </div>
+  );
+};
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```javascript
+// AudioAnalyser.jsx
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+const AudioAnalyser = ({ audio }) => {
+  const [analyser, setAnalyser] = useState();
 
-### Code Splitting
+  const getAudioData = () => {
+    if (!analyser) return [];
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+    return dataArray;
+  };
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/code-splitting
+  useEffect(() => {
+    if (!audio) return () => {};
+    const audioContext = new (window.AudioContext ||
+      window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(audio);
+    const newAnalyser = audioContext.createAnalyser();
+    source.connect(audioContext.destination);
+    source.connect(newAnalyser);
+    setAnalyser(newAnalyser)
 
-### Analyzing the Bundle Size
+    return () => {
+      newAnalyser.disconnect();
+      source.disconnect();
+    };
+  }, [audio]);
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size
+  return <Visualiser getAudioData={getAudioData} />
+};
+```
 
-### Making a Progressive Web App
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app
+```javascript
+// Visualiser.jsx
 
-### Advanced Configuration
+const Visualiser = ({ getAudioData }) => {
+  const canvasRef = useRef();
+  const requestRef = useRef();
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/advanced-configuration
+  const draw = (audioData) => {
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    ...
+  };
 
-### Deployment
+  const animate = useCallback(() => {
+    const audioData = getAudioData();
+    draw(audioData);
+    requestRef.current = requestAnimationFrame(animate);
+  }, [getAudioData]);
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/deployment
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [animate]);
 
-### `npm run build` fails to minify
+  return <canvas width="600" height="256" ref={canvasRef} />;
+};
+```
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+### Notes
+
+#### `useRef` with `requestAnimationFrame`
+
+Visualizing audio data can get tricky in React because the visual components are updated by `requestAnimationFrame` rather than React. There is an [article on css-tricks](https://css-tricks.com/using-requestanimationframe-with-react-hooks/) that covers how to use `requestAnimationFrame` in React with hooks. It's a really good read that covers why the `useRef` hook is necessary for `requestAnimationFrame`. TL:DR, we need the ever-changing request animation frame ID in order to cleanup, but `useEffect` can only ever see the initial state.
+
+`requestAnimationFrame` is looped to get the most recent audio data. This audio data comes from the one of the analyser's `get...Data()` methods (see the docs on [AnalyserNode](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode) for the different methods).
+
+#### Three approaches for getting the audio data
+
+One approach would be to run the `requestAnimationFrame` loop in the `AudioAnalyser` and save the updated audio data to the state. The actual audio data could then be passed down to the visualiser, which could simply draw the audio data. This isn't the idea approach though as it forces a rerender of the entire visualiser component. With `requestAnimationFrame` running potentially 60 times per second, this creates an unnecessary number of rerenders.
+
+Another approach would be to pass the analyser down to the visualiser, but that leads to some separation of concerns issues.
+
+The approach I ended up going with here avoided passing the analyser down to the visualiser. I instead chose to _pass a function_ to get the data down to the visualiser. This function simply gets the data so that the visualiser can redraw.
+
+### Other Notes
+
+#### Alternatives to microphone audio
+
+In this example, `audio` is a [`MediaStream`](https://developer.mozilla.org/en-US/docs/Web/API/MediaStream) for use with the `AudioContext.createMediaStreamSource()` method.
+
+You could also use an [`HTMLMediaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement) with the `AudioContext.createMediaElementSource()` function. This means that you could do the same visualisations with audio from `<video>` or `<audio>` elements.
+
+#### Compatibility
+
+Safari only uses `webkitAudioContext` instead of `AudioContext`.
+
+I'm sure there are more compatibility concerns...
+
+#### Read up on `useEffect`
+
+Returning a function in `useEffect` is useful for cleanup on unmount with React Hooks. Also, the second parameter for dependencies is important for minimizing rerenders.

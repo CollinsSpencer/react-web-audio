@@ -1,22 +1,24 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import WaveformVisualiser from './WaveformVisualiser';
 import FrequencyVisualiser from './FrequencyVisualiser';
 
 const AudioAnalyser = ({ audio }) => {
-  const analyser = useRef();
+  const [analyser, setAnalyser] = useState();
 
-  const getTimeDomainData = (styleAdjuster) => {
-    const bufferLength = analyser.current.frequencyBinCount;
+  const getTimeDomainData = () => {
+    if (!analyser) return [];
+    const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    analyser.current.getByteTimeDomainData(dataArray);
-    styleAdjuster(dataArray);
+    analyser.getByteTimeDomainData(dataArray);
+    return dataArray;
   };
-  const getFrequencyData = (styleAdjuster) => {
-    const bufferLength = analyser.current.frequencyBinCount;
+  const getFrequencyData = () => {
+    if (!analyser) return [];
+    const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    analyser.current.getByteFrequencyData(dataArray);
-    styleAdjuster(dataArray);
+    analyser.getByteFrequencyData(dataArray);
+    return dataArray;
   };
 
   useEffect(() => {
@@ -24,12 +26,13 @@ const AudioAnalyser = ({ audio }) => {
     const audioContext = new (window.AudioContext ||
       window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(audio);
-    analyser.current = audioContext.createAnalyser();
+    const newAnalyser = audioContext.createAnalyser();
     source.connect(audioContext.destination);
-    source.connect(analyser.current);
+    source.connect(newAnalyser);
+    setAnalyser(newAnalyser)
 
     return () => {
-      analyser.current.disconnect();
+      newAnalyser.disconnect();
       source.disconnect();
     };
   }, [audio]);

@@ -29,7 +29,7 @@ const App = () => {
   return (
     <div className="App">
       <header>
-        <h1>React with hooks + Web Audio API</h1>
+        <h1>React with Hooks + Web Audio API</h1>
       </header>
       <main>
         <div className="record">

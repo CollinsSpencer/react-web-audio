@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 
 const WaveformVisualiser = ({ getTimeDomainData }) => {
-  const canvasRef = useRef(null);
+  const canvasRef = useRef();
   const requestRef = useRef();
 
   const draw = (audioData) => {
@@ -29,7 +29,8 @@ const WaveformVisualiser = ({ getTimeDomainData }) => {
   };
 
   const animate = useCallback(() => {
-    getTimeDomainData(draw);
+    const audioData = getTimeDomainData();
+    draw(audioData);
     requestRef.current = requestAnimationFrame(animate);
   }, [getTimeDomainData]);
 
